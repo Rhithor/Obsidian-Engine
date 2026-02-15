@@ -1,0 +1,24 @@
+# Core API Framework
+fastapi[standard]
+uvicorn[standard]
+python-multipart
+python-dotenv
+
+# AI Orchestration & Database 
+langchain
+langchain-community
+langchain-ollama
+chromadb
+
+# Local Embeddings (Converting text to math) 
+sentence-transformers
+langchain-huggingface
+
+# Document Parsing
+pymupdf
+unstructured
+
+# PII Scrubbing
+presidio-analyzer
+presidio-anonymizer
+spacy
