@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from models import health
-from services import ai_service
+from models import health, privacy
+from services import ai_service, privacy_service
 
 app = FastAPI()
 
@@ -16,5 +16,10 @@ async def check_ollama():
     else:
         return health.HealthResponse(status="inactive", ollama_connection="disconnected")
 
+@app.post("/scrub")
+async def scrub_data(user_response: privacy.RequestUserInfo):
+    text = user_response.user_info
+    results = await privacy_service.scrub_text(text=text)
+    return privacy.ScrubbedResponse(response=results["response"], is_scrubbed=results["is_scrubbed"])
 
 
