@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, File, BackgroundTasks, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from models import health, privacy
 from services import ai_service, privacy_service
+from database import db
+import uuid
+import os
+import shutil 
+import fitz
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins = ["*"], allow_methods = ["*"], allow_headers = ["*"])
@@ -32,3 +37,39 @@ async def summary_data(user_response: privacy.RequestUserInfo):
         return privacy.SummaryResponse(scrubbed_text = scrubbed_result.response, is_scrubbed = scrubbed_result.is_scrubbed, summary=ai_response)
     else:
         return privacy.SummaryResponse(scrubbed_text = scrubbed_result.response, is_scrubbed = scrubbed_result.is_scrubbed, summary = "AI is currently offline")
+
+def process_document(file_path: str):
+    text_chunks = []
+    metadata = []
+    uuids = []
+    chunk_size, chunk_overlap = 1000, 200
+    file = fitz.open(file_path)
+    for page in file:
+        text = page.get_text() # extracting the text from each page
+        start_index = 0
+        while start_index < len(text):
+            text_chunks.append(text[start_index: start_index + chunk_size])
+            metadata.append({"source": file_path, "page": page.number})
+            uuids.append(uuid.uuid4().hex)
+            start_index += chunk_size - chunk_overlap
+    file.close()
+    os.remove(file_path)
+    if text_chunks:
+        db.collection.add(documents = text_chunks, metadatas = metadata, ids = uuids)
+
+    
+
+
+@app.post("/ingest")
+async def ingest_data(file: UploadFile, dispatcher: BackgroundTasks):
+    unique_name =f"{uuid.uuid4().hex}.pdf"
+    file_path = os.path.join("./temp_uploads", unique_name)
+    # opening the directory to which the file has to be temporarily uploaded in binary write mode
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    dispatcher.add_task(process_document, file_path)
+    return {"message": "File accepted. Processing in background."}
+
+
+
+
