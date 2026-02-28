@@ -78,5 +78,10 @@ async def ingest_data(file: UploadFile, dispatcher: BackgroundTasks):
 async def user_query(request: query.Query):
     question_text = request.QueryRequest
     db_dict = db.retrieve_context(question_text)
-    return db_dict
-
+    sources, context = db_dict["sources"], db_dict["context"]
+    res = await ai_service.generate_rag_response(question = question_text, context = context)
+    return_dict = {
+        "answer": res,
+        "sources": sources
+    }
+    return return_dict
