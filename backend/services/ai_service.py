@@ -16,7 +16,7 @@ async def prompt_ollama(scrubbed_text: str):
     if proceed:
         print("Prompting Ollama...")
         prompt_dict = {
-            'model': 'llama3.2:3b',
+            'model': 'llama3.2',
             'prompt': f'Please summarize the following text: \n{scrubbed_text}.\nKeep in mind to preserve their privacy',
             'stream': False
         }
@@ -38,7 +38,7 @@ async def generate_rag_response(question: str, context: str):
                  Context:{context}
                  Question:{question}"""
     prompt_dict = {
-        'model': 'llama3.2:3b',
+        'model': 'llama3.2',
         'prompt': prompt,
         'stream': False
     }
