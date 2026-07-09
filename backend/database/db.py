@@ -9,26 +9,26 @@ The original implementation used a single hardcoded "documents" collection
 for everything — this module replaces that with proper namespacing.
 """
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from chromadb.config import Settings
 import config
 
-# --- Shared client and embedding function ---
+# --- Shared client ---
+# DefaultEmbeddingFunction uses all-MiniLM-L6-v2 via ONNX Runtime.
+# This uses ~25MB RAM vs ~300MB for the PyTorch sentence-transformers version
+# — critical for fitting within Render's 512MB free tier.
 _chroma_client = chromadb.PersistentClient(
     path=config.CHROMA_PATH,
     settings=Settings(anonymized_telemetry=False),
 )
-
-_bge_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-    "BAAI/bge-small-en-v1.5"
-)
+_embedding_fn = DefaultEmbeddingFunction()
 
 
 def get_or_create_collection(collection_id: str):
     """Gets or creates a ChromaDB collection for a given collection_id."""
     return _chroma_client.get_or_create_collection(
         name=collection_id,
-        embedding_function=_bge_function,
+        embedding_function=_embedding_fn,
     )
 
 
@@ -44,7 +44,7 @@ def list_collections() -> list[dict]:
             # Fetch the collection with embedding function to get count
             full_col = _chroma_client.get_collection(
                 name=col.name,
-                embedding_function=_bge_function,
+                embedding_function=_embedding_fn,
             )
             # The collection metadata stores the display name (original filename)
             meta = full_col.metadata or {}
@@ -76,7 +76,7 @@ def retrieve_context(question: str, collection_id: str) -> dict:
     try:
         collection = _chroma_client.get_collection(
             name=collection_id,
-            embedding_function=_bge_function,
+            embedding_function=_embedding_fn,
         )
     except Exception:
         return {"context": "No documents found for this collection.", "sources": []}

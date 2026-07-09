@@ -1,32 +1,40 @@
 """
 Privacy Service — PII detection and anonymization via Microsoft Presidio.
 
-Uses en_core_web_sm (small spacy model, ~12MB) instead of en_core_web_lg (~700MB)
-to fit within the 512MB RAM limit on Render's free tier.
-Accuracy is slightly lower for edge cases but fully sufficient for demo use.
+Engines are lazy-loaded on first use (not at import/startup time).
+This saves ~100MB of RAM at startup on Render's 512MB free tier,
+since most requests never touch the scrub endpoint.
 """
 from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 
-# Explicitly use the small spacy model to save RAM in production
-_nlp_config = {
-    "nlp_engine_name": "spacy",
-    "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
-}
-_provider = NlpEngineProvider(nlp_configuration=_nlp_config)
-_nlp_engine = _provider.create_engine()
+_analyzer_engine = None
+_anonymizer_engine = None
 
-analyzer_engine = AnalyzerEngine(nlp_engine=_nlp_engine)
-anonymizer_engine = AnonymizerEngine()
+
+def _get_engines():
+    """Lazy-initialises Presidio engines on first call."""
+    global _analyzer_engine, _anonymizer_engine
+    if _analyzer_engine is None:
+        nlp_config = {
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+        }
+        provider = NlpEngineProvider(nlp_configuration=nlp_config)
+        nlp_engine = provider.create_engine()
+        _analyzer_engine = AnalyzerEngine(nlp_engine=nlp_engine)
+        _anonymizer_engine = AnonymizerEngine()
+    return _analyzer_engine, _anonymizer_engine
 
 
 async def scrub_text(text: str) -> dict:
+    analyzer, anonymizer = _get_engines()
     is_scrubbed = False
-    analyzer_results = analyzer_engine.analyze(text=text, language="en")
+    analyzer_results = analyzer.analyze(text=text, language="en")
     if len(analyzer_results) > 0:
         is_scrubbed = True
-    anonymizer_results = anonymizer_engine.anonymize(
+    anonymizer_results = anonymizer.anonymize(
         text=text, analyzer_results=analyzer_results
     )
     return {
