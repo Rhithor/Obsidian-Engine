@@ -119,6 +119,8 @@ Open `http://localhost:5173`
 
 ### Frontend → Vercel
 
+Live at: **https://obsidian-engine-five.vercel.app**
+
 1. Push the repo to GitHub
 2. Import the `frontend/` directory into Vercel
 3. Set environment variable: `VITE_API_URL=https://your-backend.railway.app`
