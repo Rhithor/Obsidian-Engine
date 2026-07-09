@@ -1,30 +1,50 @@
 """
-AI Service — LLM interaction via LangChain LCEL pipeline.
+AI Service — Provider-agnostic LLM via LangChain LCEL.
 
-Uses the LangChain Expression Language (LCEL) to build a proper
-chain: prompt template → LLM → output parser. This replaces the
-original raw httpx calls and makes LangChain an actual dependency,
-not a phantom one.
+Automatically selects the LLM backend based on config:
+  - LLM_PROVIDER=groq  → ChatGroq  (production on Railway, fast, free tier)
+  - LLM_PROVIDER=ollama → ChatOllama (local dev, fully private)
 
-Streaming: the generate_rag_response_stream() generator yields
-token-by-token text for SSE streaming to the frontend.
+The LCEL chain (prompt | llm | parser) is identical for both providers —
+this is the key benefit of LangChain's abstraction layer.
 """
 import httpx
-from langchain_ollama import ChatOllama
+from typing import AsyncGenerator
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from typing import AsyncGenerator
+
 import config
 
-# --- Shared LLM instance ---
-_llm = ChatOllama(
-    model=config.OLLAMA_MODEL,
-    base_url=config.OLLAMA_HOST,
-    temperature=0.1,  # Low temperature for factual RAG responses
-    timeout=120,
-)
 
-# --- RAG prompt ---
+# ---------------------------------------------------------------------------
+# Build the LLM based on the configured provider
+# ---------------------------------------------------------------------------
+def _build_llm():
+    if config.LLM_PROVIDER == "groq":
+        from langchain_groq import ChatGroq
+        print(f"[AI Service] Using Groq provider (model: {config.GROQ_MODEL})")
+        return ChatGroq(
+            model=config.GROQ_MODEL,
+            api_key=config.GROQ_API_KEY,
+            temperature=0.1,
+            max_retries=2,
+        )
+    else:
+        from langchain_ollama import ChatOllama
+        print(f"[AI Service] Using Ollama provider (model: {config.OLLAMA_MODEL})")
+        return ChatOllama(
+            model=config.OLLAMA_MODEL,
+            base_url=config.OLLAMA_HOST,
+            temperature=0.1,
+        )
+
+
+_llm = _build_llm()
+
+# ---------------------------------------------------------------------------
+# Prompts
+# ---------------------------------------------------------------------------
 _rag_prompt = ChatPromptTemplate.from_template("""You are a highly secure, private AI assistant called Obsidian Engine.
 You must answer the user's question using ONLY the information provided in the Context below.
 If the answer is not contained in the Context, explicitly say: "I do not know based on the provided documents."
@@ -38,8 +58,7 @@ Question:
 
 Answer:""")
 
-# --- Summary prompt ---
-_summary_prompt = ChatPromptTemplate.from_template("""Summarize the following text concisely. 
+_summary_prompt = ChatPromptTemplate.from_template("""Summarize the following text concisely.
 Preserve the key facts. The text may have had sensitive information anonymized — treat anonymized tokens like <PERSON> or <EMAIL_ADDRESS> as-is.
 
 Text:
@@ -47,13 +66,25 @@ Text:
 
 Summary:""")
 
-# --- Build LCEL chains ---
+# ---------------------------------------------------------------------------
+# LCEL Chains (identical regardless of provider)
+# ---------------------------------------------------------------------------
 _rag_chain = _rag_prompt | _llm | StrOutputParser()
 _summary_chain = _summary_prompt | _llm | StrOutputParser()
 
 
+# ---------------------------------------------------------------------------
+# Health check (provider-aware)
+# ---------------------------------------------------------------------------
 async def is_ollama() -> bool:
-    """Checks if the Ollama server is reachable."""
+    """
+    Returns True if the configured LLM provider is reachable.
+    For Groq, verifies the API key is set.
+    For Ollama, pings the local server.
+    """
+    if config.LLM_PROVIDER == "groq":
+        return bool(config.GROQ_API_KEY)
+
     async with httpx.AsyncClient(timeout=5) as client:
         try:
             res = await client.get(f"{config.OLLAMA_HOST}/")
@@ -63,39 +94,39 @@ async def is_ollama() -> bool:
             return False
 
 
+# ---------------------------------------------------------------------------
+# RAG response (non-streaming)
+# ---------------------------------------------------------------------------
 async def generate_rag_response(question: str, context: str) -> str | None:
-    """
-    Generates a RAG response using the LCEL chain (non-streaming).
-    Returns the full response string, or None on failure.
-    """
     try:
         response = await _rag_chain.ainvoke({"context": context, "question": question})
         return response
     except Exception as e:
-        print(f"[AI Service] RAG chain failed: {e}")
+        print(f"[AI Service] RAG chain error ({config.LLM_PROVIDER}): {e}")
         return None
 
 
+# ---------------------------------------------------------------------------
+# RAG response (streaming)
+# ---------------------------------------------------------------------------
 async def generate_rag_response_stream(
     question: str, context: str
 ) -> AsyncGenerator[str, None]:
-    """
-    Streams the RAG response token by token via the LCEL chain.
-    Each yielded value is a plain text chunk for SSE.
-    """
     try:
         async for chunk in _rag_chain.astream({"context": context, "question": question}):
             yield chunk
     except Exception as e:
-        print(f"[AI Service] Streaming RAG chain failed: {e}")
+        print(f"[AI Service] Streaming error ({config.LLM_PROVIDER}): {e}")
         yield f"\n\n[Error: AI model unavailable — {e}]"
 
 
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
 async def generate_summary(text: str) -> str | None:
-    """Generates a summary of the given (pre-scrubbed) text."""
     try:
         response = await _summary_chain.ainvoke({"text": text})
         return response
     except Exception as e:
-        print(f"[AI Service] Summary chain failed: {e}")
+        print(f"[AI Service] Summary error ({config.LLM_PROVIDER}): {e}")
         return None

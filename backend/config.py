@@ -8,9 +8,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- Ollama ---
+# --- LLM Provider ---
+# Set LLM_PROVIDER=groq for production (Railway), LLM_PROVIDER=ollama for local dev
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+_default_provider = "groq" if GROQ_API_KEY else "ollama"
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", _default_provider)
+
+# --- Ollama (local dev) ---
 OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+# --- Groq (production) ---
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 # --- ChromaDB ---
 CHROMA_PATH: str = os.getenv("CHROMA_PATH", "./chroma_data")
