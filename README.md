@@ -126,14 +126,16 @@ Live at: **https://obsidian-engine-five.vercel.app**
 3. Set environment variable: `VITE_API_URL=https://your-backend.railway.app`
 4. Deploy
 
-### Backend → Railway
+### Backend → Render
 
-1. Create a new Railway project from the `backend/` directory
-2. Set environment variables in Railway dashboard (see `.env.example`)
-3. Set `ALLOWED_ORIGINS` to your Vercel frontend URL
-4. Railway auto-detects the `Procfile` and deploys
+Live at: **https://obsidian-engine-backend.onrender.com**
 
-> **Note:** Ollama must also run on Railway or be accessible from the backend. For the deployed version, set `OLLAMA_HOST` to your Ollama server URL.
+1. Create a new Render Web Service from the `backend/` directory
+2. Set Environment to `Docker` (auto-detected from `backend/Dockerfile`)
+3. Add environment variables from `.env.example` in the Render dashboard
+4. Render auto-deploys on every push to `main`
+
+> **Note:** Free tier spins down after 15 min of inactivity — first request after idle takes ~30s.
 
 ---
 
