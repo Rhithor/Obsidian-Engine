@@ -1,0 +1,13 @@
+# Don't copy these into the Docker image
+__pycache__/
+*.pyc
+*.pyo
+.env
+env/
+.venv/
+chroma_data/
+temp_uploads/
+*.pdf
+.git/
+.gitignore
+runtime.txt
