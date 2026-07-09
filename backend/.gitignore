@@ -1,3 +1,33 @@
-.env 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
 env/
-__pycache__
+.env/
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# ChromaDB data (local vector store - not for git)
+chroma_data/
+
+# Temporary uploads
+temp_uploads/
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

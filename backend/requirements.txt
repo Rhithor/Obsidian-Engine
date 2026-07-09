@@ -1,24 +1,26 @@
 # Core API Framework
-fastapi[standard]
-uvicorn[standard]
-python-multipart
-python-dotenv
+fastapi[standard]==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+python-dotenv==1.0.1
 
-# AI Orchestration & Database 
-langchain
-langchain-community
-langchain-ollama
-chromadb
+# AI Orchestration
+langchain==0.3.1
+langchain-community==0.3.1
+langchain-ollama==0.2.0
+langchain-text-splitters==0.3.0
 
-# Local Embeddings (Converting text to math) 
-sentence-transformers
-langchain-huggingface
+# Vector Database
+chromadb==0.5.15
+
+# Local Embeddings
+sentence-transformers==3.1.1
+langchain-huggingface==0.1.1
 
 # Document Parsing
-pymupdf
-unstructured
+pymupdf==1.24.10
 
 # PII Scrubbing
-presidio-analyzer
-presidio-anonymizer
-spacy
+presidio-analyzer==2.2.355
+presidio-anonymizer==2.2.355
+spacy==3.7.6
